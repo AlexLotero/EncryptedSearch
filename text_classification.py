@@ -8,7 +8,7 @@ def build_model():
     bbc_data = pd.read_csv("data/bbc_data.csv")
     # print(bbc_data.head())
     
-    # train-test split
+    # train-test split - write here
     
 
     
