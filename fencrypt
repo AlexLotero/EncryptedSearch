@@ -1,0 +1,495 @@
+#!/usr/bin/env python3
+
+# from curses import meta
+# import ast
+import json
+import sys
+import os
+import secrets
+import hashlib
+import getpass
+from Crypto.Cipher import AES
+import argparse
+import hmac
+from Crypto.Util import Counter
+from pathlib import Path
+#import regex as re
+import unicodedata
+import ntpath
+import binascii
+from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+
+iterations = 250000
+stdout = sys.stdout
+
+def parser_func():
+    parser = argparse.ArgumentParser()
+    group = parser.add_mutually_exclusive_group()
+    parser.add_argument(
+        "P", nargs="*", help="either file paths or search terms")
+    group.add_argument("-e", nargs="*", help="encrypt provided files")
+    group.add_argument("-d", nargs="*", help="decrypt provided files")
+    group.add_argument("-s", nargs="*", help="search files in current folder")
+    parser.add_argument("-j", action="store_true",
+                        help="output debug information to stdout")
+    args = parser.parse_args()
+    return args
+
+
+def no_arg():
+    a = """usage: fencrypt.py [-h] [-e [E ...]] [-d [D ...]] [-s [S ...]] [-j] [P ...]
+positional arguments:
+P     either file paths or search terms
+optional arguments:
+-h, --help  show this help message and exit
+-e [E ...]  encrypt provided files
+-d [D ...]  decrypt provided files
+-s [S ...]  search files in current folder
+-j          output debug information to stdout"""
+    print(a)
+    sys.exit(1)
+
+
+def pword_check(enc):
+    if sys.stdin.isatty():
+        pword = str(getpass.getpass("Please enter a password: "))
+    else:
+        pword = sys.stdin.readline().strip()
+    # pword = str(getpass.getpass("Please enter a password: "))
+    if len(pword) < 1:
+        sys.exit(1)
+    return pword
+
+def invalid_password(failed_files):
+    for i in failed_files:
+        print("Unable to decrypt, password did not match for the following file: " + i, file=sys.stderr)
+    sys.exit(1)
+
+def master_key(password):
+    salt = secrets.token_bytes(16)
+    mkey = hashlib.pbkdf2_hmac("sha256", bytes(
+        password, "utf-8"), salt, iterations, dklen=32)
+    return mkey, salt
+def master_key_dec(password, salt):
+    mkey = hashlib.pbkdf2_hmac("sha256", bytes(
+        password, "utf-8"), salt, iterations, dklen=32)
+    return mkey
+
+def one_ctr_block(mkey, nonce_plus_ctr):
+    ctx = AES.new(mkey, mode=AES.MODE_ECB)
+    return ctx.encrypt(nonce_plus_ctr)
+
+def kdf(base_key, nonce):
+    cipher = Cipher(algorithms.AES(base_key), modes.CTR(nonce)).encryptor().update(b"\x00" * 224).hex()
+    return (bytes.fromhex(cipher[:32]),
+            bytes.fromhex(cipher[32:64]),
+            bytes.fromhex(cipher[64:96]),
+            bytes.fromhex(cipher[96:128]),
+            bytes.fromhex(cipher[128:160]),
+            bytes.fromhex(cipher[160:192]),
+            bytes.fromhex(cipher[192:224]))
+
+def sub_keys(mkey):
+    list_keys = ["password_validator", "first_round", "second_round",
+                 "third_round", "fourth_round", "mac_key", "enc_search"]
+    # mkey = bytes.fromhex("bb80687f3bb2be6c40322944ee145c947adcf8c8e989da60ebe8a1be5e9aa46b")
+    aes_key = mkey[:16]
+    init_nonce = mkey[16:]
+    key_mat = kdf(aes_key, init_nonce)
+    keys = {list_keys[i]: key_mat[i] for i in range(len(list_keys))}
+    return keys
+
+
+def xor_bytes(bytes_1, bytes_2):  # credit to professor Viega, taken from lecture material
+    assert(len(bytes_1) == len(bytes_2))
+    return bytes([x^y for x, y in zip(bytes_1, bytes_2)])
+
+
+def ctr_round(block, round_key):
+    lin = block[:16]
+    rin = block[16:]
+    lout = lin
+    cipher = Cipher(algorithms.AES(round_key), modes.CTR(lin)).encryptor().update(b"\x00" * len(rin))
+    rout = xor_bytes(cipher, rin)
+    return lout + rout
+
+
+def hmac_round(block, round_key):
+    lin = block[:16]
+    rin = block[16:]
+    rout = rin
+    lout = xor_bytes(hmac.new(round_key, rin, hashlib.sha256).digest()[:16], lin)
+    return lout + rout
+
+
+def feistal(file, keys):
+    r1 = ctr_round(file, keys["first_round"])
+    r2 = hmac_round(r1, keys["second_round"])
+    r3 = ctr_round(r2, keys["third_round"])
+    r4 = hmac_round(r3, keys["fourth_round"])
+    return r4
+
+def inverse_feistal(cipher_text, keys):
+    r1 = hmac_round(cipher_text, keys["fourth_round"])
+    r2 = ctr_round(r1, keys["third_round"])
+    r3 = hmac_round(r2, keys["second_round"])
+    r4 = ctr_round(r3, keys["first_round"])
+    return r4
+
+def utf_check(data):
+    try:
+        return data.decode("utf-8")
+    except UnicodeDecodeError:
+        return None
+
+def encrypt(input_file, password, mkey, salt, j_set):
+    file = open(input_file, "r+b")
+    og_file = file.read()
+    file.close()
+    round_keys = sub_keys(mkey)
+    cipher_text = feistal(og_file, round_keys)
+    utf_file = utf_check(og_file)
+    # utf_file = "&uCZGBPutUem\fsUB0bQioTLfJIPX/\f\f /NaRq5bWk&\u000b\n\nn,\t\n\t\tdnY01z4yvPuX8AWnPZka\r ?Wm0eIcQSVyv\r\u000b,BMPJa5'\r\n\n\rTknbf1KVCzKE`\f\r=a\nK0xcgF\n\n\r=9kxNYik}\u000b6ypx6il0Y.\t\u000b\u000b:m3{\r\u000b `BsG0TSfR*\n>ueeUN6iS\n"
+    if utf_file is not None:
+        terms_old = []
+        temp1 = utf_file.split()
+        for word in temp1:
+            temp2 = temp = re.findall(r"\p{Ll}|\p{Lu}|\p{Lt}|\p{Lm}|\p{Lo}|\p{Mn}|\p{Nd}|\p{Pc}", word)
+            terms_old.append("".join(temp2))
+        terms_new = [item for item in terms_old if len(item) >= 4 and len(item) <= 12]
+        terms_star = []
+        for i in terms_new:
+            terms_star.append(i)
+            shorter_word = i
+            while len(shorter_word) > 4:
+                terms_star.append(shorter_word[:-1] + "*")
+                shorter_word = shorter_word[:-1]
+        terms_normalized = []
+        for j in terms_star:
+            temp = j.casefold()
+            temp2 = unicodedata.normalize("NFC", temp)
+            terms_normalized.append(temp2)
+        # terms_normalized = list(set(terms_normalized))
+        # terms_normalized.sort()
+        # terms_normalized = sorted(terms_normalized)
+        terms = []
+        for item in terms_star:
+            temp = item.encode("utf-8")
+            terms.append(hmac.new(round_keys["enc_search"], temp, hashlib.sha256).digest())
+        terms = list(set(terms))
+        # terms.sort()
+        terms = sorted(terms)
+        # print(terms[-1])
+        # for q in terms_normalized:
+        #     print(q)
+        # exit()
+    else:
+        terms = []
+    mac = hmac.new(round_keys["mac_key"], cipher_text, hashlib.sha256).digest()
+    file = open(input_file, "w+b")
+    file.write(cipher_text)
+    file.close()
+    create_meta_file("e", salt, round_keys["password_validator"], mac, terms, input_file)
+
+def valid_decrypt(input_file, pword, j_set):
+    file_name = ntpath.basename(input_file)
+    if not os.path.exists(file_name):
+        meta_location = ntpath.dirname(input_file) + "/" + ".fenc-meta." + file_name
+    else:
+        meta_location = ".fenc-meta." + input_file
+    meta_file = open(meta_location, )
+    important_values = json.load(meta_file)
+    salt = bytes.fromhex(important_values["salt"])
+    validator = bytes.fromhex(important_values["validator"])
+    mkey = master_key_dec(pword, salt)
+    round_keys = sub_keys(mkey)
+    if validator != round_keys["password_validator"]:
+        meta_file.close()
+        return input_file, False
+    else:
+        meta_file.close()
+        return input_file, True
+
+def mac_check(input_file, pword, jset):
+    file_name = ntpath.basename(input_file)
+    if not os.path.exists(file_name):
+        meta_location = ntpath.dirname(input_file) + "/" + ".fenc-meta." + file_name
+    else:
+        meta_location = ".fenc-meta." + input_file
+    meta_file = open(meta_location, )
+    important_values = json.load(meta_file)
+    salt = bytes.fromhex(important_values["salt"])
+    meta_mac = bytes.fromhex(important_values["mac"])
+    mkey = master_key_dec(pword, salt)
+    round_keys = sub_keys(mkey)
+    encrypted_file = open(input_file, "r+b")
+    cipher_text = encrypted_file.read()
+    calculated_mac = hmac.new(round_keys["mac_key"], cipher_text, hashlib.sha256).digest()
+    if calculated_mac != meta_mac:
+        meta_file.close()
+        encrypted_file.close()
+        return input_file, False
+    else:
+        meta_file.close()
+        encrypted_file.close()
+        return input_file, True
+    
+def decrypt(input_file, pword, jset):
+    file_name = ntpath.basename(input_file)
+    if not os.path.exists(file_name):
+        meta_location = ntpath.dirname(input_file) + "/" + ".fenc-meta." + file_name
+    else:
+        meta_location = ".fenc-meta." + input_file
+    meta_file = open(meta_location, )
+    important_values = json.load(meta_file)
+    salt = bytes.fromhex(important_values["salt"])
+    mkey = master_key_dec(pword, salt)
+    round_keys = sub_keys(mkey)
+    encrypted_file = open(input_file, "r+b")
+    cipher_text = encrypted_file.read()
+    encrypted_file.close()
+    meta_file.close()
+    plain_text = inverse_feistal(cipher_text, round_keys)
+    file = open(input_file, "w+b")
+    file.write(plain_text)
+    file.close()
+    os.remove(meta_location)
+
+def create_meta_file(type, salt, validator, mac, terms_old, item):
+    item_old = item
+    item_layer = False
+    if not os.path.exists(ntpath.basename(item)):
+        item_layer = True
+    item_name = ntpath.basename(item)
+    if type == "e":
+        output = {}
+        output["salt"] = salt.hex()
+        output["validator"] = validator.hex()
+        output["mac"] = mac.hex()
+        terms = []
+        if terms_old:
+            for element in terms_old:
+                terms.append(element.hex())
+        output["terms"] = terms
+        if item_layer:
+            file_name = ntpath.dirname(item_old) + "/" + ".fenc-meta." + item_name
+        else:
+            file_name = ".fenc-meta." + item_name
+        # output = ast.literal_eval(output)
+        to_write = json.dumps(output)
+        with open(file_name, "w") as f:
+            f.write(to_write)
+            # json.dump(output, f)
+            # json.dumps(output)
+        return
+
+def meta_file_print(file):
+    meta_location = ".fenc-meta." + file
+    meta_file = open(meta_location, )
+    important_values = json.load(meta_file)
+    print(important_values)
+
+def file_exists(file, type):
+    if type == "e":
+        path = Path(file)
+        path_already = Path(".fenc-meta." + file)
+        if not path.is_file():
+            return False, "nf"
+        if path_already.is_file():
+            return False, "ae"
+    if type == "d":
+        file_name = ntpath.basename(file)
+        if not os.path.exists(file_name):
+            path = Path(ntpath.dirname(file) + "/" + ".fenc-meta." + file_name)
+        else:
+            path = Path(".fenc-meta." + file)
+        if not path.is_file():
+            return False, "ne"
+    return True, "g"
+
+def invalid_files(code, the_file):
+    if code == "nf":
+        print("File not found: " + the_file, file=sys.stderr)
+    if code == "ae":
+        print("File already encrypted: " + ".fenc-meta." + the_file, file=sys.stderr)
+    if code == "ne":
+        print("File is not encrpyted: " + the_file, file=sys.stderr)
+    if code == "nm":
+        print("File is not encrypted: " + the_file + ", no meta data to view", file=sys.stderr)
+    return
+
+def too_small(files):
+    for i in files:
+        print("This file is less than 32 bytes, cannnot complete operation: " + i, file=sys.stderr)
+    sys.exit(1)
+
+def files_for_search():
+    file_list = []
+    for files in os.listdir():
+        if files.startswith(".fenc-meta."):
+            file_list.append(files)
+    # print(len(file_list))
+    if not file_list:
+        sys.exit(1)
+    return file_list
+
+def password_validation(pword, files):
+    failed = []
+    passed = []
+    for f in files:
+        meta_file = open(f, )
+        important_values = json.load(meta_file)
+        salt = bytes.fromhex(important_values["salt"])
+        validator = bytes.fromhex(important_values["validator"])
+        mkey = master_key_dec(pword, salt)
+        round_keys = sub_keys(mkey)
+        if validator != round_keys["password_validator"]:
+            meta_file.close()
+            failed.append(f)
+        else:
+            meta_file.close()
+            passed.append(f)
+    return failed, passed
+
+def open_terms_list(file, pword):
+    meta_file = open(file,)
+    important_values = json.load(meta_file)
+    salt = bytes.fromhex(important_values["salt"])
+    mkey = master_key_dec(pword, salt)
+    round_keys = sub_keys(mkey)
+    meta_file.close()
+    return important_values["terms"], round_keys["enc_search"]
+
+def word_encryption(search_term, key):
+    search_term1 = search_term.casefold()
+    search_term2 = unicodedata.normalize("NFC", search_term1)
+    search_term3 = search_term2.encode("utf-8")
+    return hmac.new(key, search_term3, hashlib.sha256).digest()
+
+def search_output(search_hits):
+    for element in search_hits:
+        if search_hits[element]:
+            print("The provided term: " + element + ", was found in the following files:", search_hits[element], file=sys.stderr)
+
+
+def main():
+
+    args = parser_func()
+
+    if not len(sys.argv) > 1:
+        no_arg()
+
+    if args.P and not args.e:
+        args.e = args.P
+    
+    if (args.e and args.d) or (args.e and args.s) or (args.d and args.s):
+        no_arg()
+
+    if args.e:
+        invalid_check = []    
+        for file in args.e:
+            valid_files, code = file_exists(file, "e")
+            if not valid_files:
+                invalid_check.append([code, file])
+        if invalid_check:
+            for i in invalid_check:
+                invalid_files(i[0], i[1])
+            sys.exit(1)
+        size_check = []
+        for file in args.e:
+            if os.stat(file).st_size < 32:
+                size_check.append(file)
+        if size_check:
+            too_small(size_check) 
+        json_output = {}
+        pword = pword_check(1)
+        # mkey, salt = master_key(pword)
+        # if args.j: 
+        #     for requested_file in args.e:
+        #         json_output[ntpath.basename(requested_file)] = mkey.hex()
+        #     print(json.dumps(json_output))
+        for file in args.e:
+            mkey, salt = master_key(pword)
+            if args.j:
+                json_output[ntpath.basename(file)] = mkey.hex()
+            encrypt(file, pword, mkey, salt, args.j == 1)
+        if args.j:
+            print(json.dumps(json_output))
+
+    if args.d:
+        file_not_encrypted = []
+        for file in args.d:
+            valid_files, code = file_exists(file, "d")
+            if not valid_files:
+                file_not_encrypted.append([code, file])
+        if file_not_encrypted:
+            for entry in file_not_encrypted:
+                invalid_files(entry[0], entry[1])
+            sys.exit(1)
+        pword = pword_check(0)
+        json_output = {}
+        if args.j: 
+            for requested_file in args.d:
+                file_name = ntpath.basename(requested_file)
+                if not os.path.exists(file_name):
+                    meta_location = ntpath.dirname(requested_file) + "/" + ".fenc-meta." + file_name
+                else:
+                    meta_location = ".fenc-meta." + requested_file
+                # meta_location = ".fenc-meta." + requested_file
+                meta_file = open(meta_location, )
+                important_values = json.load(meta_file)
+                mkey = master_key_dec(pword, bytes.fromhex(important_values["salt"]))
+                json_output[file_name] = mkey.hex()
+                meta_file.close()
+            print(json.dumps(json_output))
+        validity_checks = []
+        for file in args.d:
+            checked_file, validity = valid_decrypt(file, pword, args.j == 1)
+            if not validity:
+                validity_checks.append(checked_file)
+        if validity_checks:
+            invalid_password(validity_checks)
+        mac_checks = []
+        for file in args.d:
+            tested_file, valid_mac = mac_check(file, pword, args.j == 1)
+            if not valid_mac:
+                print("File: " + tested_file + " did not validate with mac, data may have been tampered with.", file=sys.stderr)
+                continue
+            else:
+                mac_checks.append(tested_file)
+        for file in mac_checks:
+            decrypt(file, pword, args.j == 1)
+
+    if args.s:
+        files_to_search = files_for_search()
+        pword = pword_check(0)
+        failed_validation, passed_validation = password_validation(pword, files_to_search)
+        failed_validation.sort()
+        passed_validation.sort()
+        for x in failed_validation:
+            print("Warning - the password entered did not validate for the following file: " + x, file=sys.stderr)
+        if len(files_to_search) <= len(failed_validation):
+            sys.exit(1)
+        if args.j:
+            for p in passed_validation:
+                json_output_s = {}
+                meta_file_s = open(p, )
+                important_values = json.load(meta_file_s)
+                mkey = master_key_dec(pword, bytes.fromhex(important_values["salt"]))
+                json_output_s[p[11:]] = mkey.hex()
+                meta_file_s.close()
+                print(json.dumps(json_output_s))
+        search_hits = dict(zip(args.s, [None]*len(args.s)))
+        for a in search_hits:
+            search_hits[a] = []
+        for y in passed_validation:
+            terms, key = open_terms_list(y, pword)
+            for z in args.s:
+                word = word_encryption(z, key)
+                if word.hex() in terms:
+                    search_hits[z].append(y[11:])
+        search_output(search_hits)
+
+
+if __name__ == "__main__":
+    main()
