@@ -13,14 +13,25 @@ import argparse
 import hmac
 from Crypto.Util import Counter
 from pathlib import Path
-#import regex as re
+import regex as re
 import unicodedata
 import ntpath
 import binascii
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 
+import tensorflow as tf
+from tensorflow.keras.preprocessing.text import tokenizer_from_json
+# from tensorflow.keras.preprocessing.text import Tokenizer
+from tensorflow.keras.preprocessing.sequence import pad_sequences
+# import numpy as np
+import pickle
+
+from tensorflow.keras.optimizers import Adam
+from tensorflow.keras.losses import CategoricalCrossentropy
+
 iterations = 250000
 stdout = sys.stdout
+MODEL_LOCATION = "model_location.txt"
 
 def parser_func():
     parser = argparse.ArgumentParser()
@@ -48,6 +59,51 @@ optional arguments:
 -j          output debug information to stdout"""
     print(a)
     sys.exit(1)
+
+def load_tokenizer(location):
+    with open(location, 'r', encoding='utf-8') as file:
+        tokenizer_json = json.load(file)
+        # print(tokenizer_json)
+        tokenizer = tokenizer_from_json(tokenizer_json)
+    return tokenizer
+
+def load_label_encoder(location):
+    with open(location, 'rb') as file:
+        loaded_label_encoder = pickle.load(file)
+        file.close()
+    return loaded_label_encoder
+
+def load_model():
+    file = open(MODEL_LOCATION, "r")
+    model_info = file.read()
+    file.close()
+    model_info = model_info.split()
+    text_classifier = tf.keras.models.load_model(model_info[0])
+    n_percentile = int(model_info[1])
+    tokenizer = load_tokenizer(model_info[2])
+    label_encoder = load_label_encoder(model_info[3])
+    return text_classifier, n_percentile, tokenizer, label_encoder
+
+def preprocessor(X, max_len, tokenizer):
+
+    # Tokenizing the data: each unique word --> a unique integer
+    X_tok = tokenizer.texts_to_sequences(X)
+
+    # Pad the data to ensure a consistent size for inputs
+    X_processed = pad_sequences(X_tok, maxlen=max_len)
+    # print("Number of features per sample:", X_processed.shape[1] if X_processed.ndim > 1 else "N/A")
+    return X_processed
+
+def predict_category(X, model, max_len, tokenizer, label_encoder):
+    processed_X = preprocessor(X, max_len, tokenizer)
+    likelihoods = model(processed_X)
+    prediction = tf.nn.softmax(likelihoods)
+    predicted_index = tf.argmax(prediction, axis=1).numpy() #[0]
+    predicted_categories = label_encoder.inverse_transform(predicted_index)
+    print("Logits: ", likelihoods)
+    print(predicted_categories)
+    # exit()
+    return prediction
 
 
 def pword_check(enc):
@@ -143,9 +199,13 @@ def utf_check(data):
         return None
 
 def encrypt(input_file, password, mkey, salt, j_set):
+    text_classifier, final_n_percentile, final_tokenizer, final_label_encoder = load_model()
     file = open(input_file, "r+b")
     og_file = file.read()
     file.close()
+    X = [og_file]
+    X = [text.decode('utf-8') for text in X]
+    predicted_category = predict_category(X, text_classifier, final_n_percentile, final_tokenizer, final_label_encoder)
     round_keys = sub_keys(mkey)
     cipher_text = feistal(og_file, round_keys)
     utf_file = utf_check(og_file)
@@ -179,6 +239,7 @@ def encrypt(input_file, password, mkey, salt, j_set):
         terms = list(set(terms))
         # terms.sort()
         terms = sorted(terms)
+        print()
         # print(terms[-1])
         # for q in terms_normalized:
         #     print(q)
@@ -189,7 +250,8 @@ def encrypt(input_file, password, mkey, salt, j_set):
     file = open(input_file, "w+b")
     file.write(cipher_text)
     file.close()
-    create_meta_file("e", salt, round_keys["password_validator"], mac, terms, input_file)
+    create_meta_file("e", salt, round_keys["password_validator"], mac, terms, input_file, predicted_category)
+    return
 
 def valid_decrypt(input_file, pword, j_set):
     file_name = ntpath.basename(input_file)
@@ -255,7 +317,7 @@ def decrypt(input_file, pword, jset):
     file.close()
     os.remove(meta_location)
 
-def create_meta_file(type, salt, validator, mac, terms_old, item):
+def create_meta_file(type, salt, validator, mac, terms_old, item, category):
     item_old = item
     item_layer = False
     if not os.path.exists(ntpath.basename(item)):
@@ -267,6 +329,7 @@ def create_meta_file(type, salt, validator, mac, terms_old, item):
         output["validator"] = validator.hex()
         output["mac"] = mac.hex()
         terms = []
+        output["category"] = category
         if terms_old:
             for element in terms_old:
                 terms.append(element.hex())
@@ -281,6 +344,7 @@ def create_meta_file(type, salt, validator, mac, terms_old, item):
             f.write(to_write)
             # json.dump(output, f)
             # json.dumps(output)
+            f.close()
         return
 
 def meta_file_print(file):
