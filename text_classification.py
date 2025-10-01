@@ -140,7 +140,7 @@ def build_model():
         # Create Lists to store models and the ouput of their loss functions, respectively
         models = []
         losses = []
-        # accuracys = []
+        accuracys = []
         
         # Split data into three sets: training to initially train a model, 
         # cross validation to compare models within the inner loop, and 
@@ -203,9 +203,9 @@ def build_model():
             # loss = model.evaluate(X_cv, y_cv)
             models.append(model)
             losses.append(loss)
-            print(accuracy)
-            exit()
-            # accuracys.append(accuracy)
+            # print(accuracy)
+            # exit()
+            accuracys.append(accuracy)
 
         # Find the lowest recorded loss by an individual model
         min_value = min(losses)

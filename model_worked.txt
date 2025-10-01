@@ -1,0 +1,274 @@
+The final model was selected as follows: 
+
+Model: "sequential_5"
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━┓
+┃ Layer (type)                         ┃ Output Shape                ┃         Param # ┃
+┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━┩
+│ dense_20 (Dense)                     │ (None, 112)                 │          69,104 │
+├──────────────────────────────────────┼─────────────────────────────┼─────────────────┤
+│ dense_21 (Dense)                     │ (None, 96)                  │          10,848 │
+├──────────────────────────────────────┼─────────────────────────────┼─────────────────┤
+│ dense_22 (Dense)                     │ (None, 80)                  │           7,760 │
+├──────────────────────────────────────┼─────────────────────────────┼─────────────────┤
+│ dense_23 (Dense)                     │ (None, 64)                  │           5,184 │
+├──────────────────────────────────────┼─────────────────────────────┼─────────────────┤
+│ dense_24 (Dense)                     │ (None, 48)                  │           3,120 │
+├──────────────────────────────────────┼─────────────────────────────┼─────────────────┤
+│ dense_25 (Dense)                     │ (None, 32)                  │           1,568 │
+├──────────────────────────────────────┼─────────────────────────────┼─────────────────┤
+│ dense_26 (Dense)                     │ (None, 5)                   │             165 │
+└──────────────────────────────────────┴─────────────────────────────┴─────────────────┘
+ Total params: 293,249 (1.12 MB)
+ Trainable params: 97,749 (381.83 KB)
+ Non-trainable params: 0 (0.00 B)
+ Optimizer params: 195,500 (763.68 KB)
+None
+14/14 ━━━━━━━━━━━━━━━━━━━━ 0s 528us/step - loss: 1.5975
+HERE: 1.6022748947143555
+Final Loss: 1.602111
+90th percentile of input text lengths: 616
+
+Number of features per sample: 616
+Logits:  tf.Tensor(
+[[ 7.019979   6.967407   8.240443   7.192677   4.6259604]
+ [ 4.7515855  2.5878813  3.866184   2.8691077 -0.7837479]], shape=(2, 5), dtype=float32)
+['politics' 'business']
+
+
+The final model was selected as follows: 
+
+Model: "sequential_10"
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━┓
+┃ Layer (type)                         ┃ Output Shape                ┃         Param # ┃
+┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━┩
+│ dense_51 (Dense)                     │ (None, 112)                 │          69,104 │
+├──────────────────────────────────────┼─────────────────────────────┼─────────────────┤
+│ dense_52 (Dense)                     │ (None, 96)                  │          10,848 │
+├──────────────────────────────────────┼─────────────────────────────┼─────────────────┤
+│ dense_53 (Dense)                     │ (None, 80)                  │           7,760 │
+├──────────────────────────────────────┼─────────────────────────────┼─────────────────┤
+│ dense_54 (Dense)                     │ (None, 64)                  │           5,184 │
+├──────────────────────────────────────┼─────────────────────────────┼─────────────────┤
+│ dense_55 (Dense)                     │ (None, 48)                  │           3,120 │
+├──────────────────────────────────────┼─────────────────────────────┼─────────────────┤
+│ dense_56 (Dense)                     │ (None, 32)                  │           1,568 │
+├──────────────────────────────────────┼─────────────────────────────┼─────────────────┤
+│ dense_57 (Dense)                     │ (None, 5)                   │             165 │
+└──────────────────────────────────────┴─────────────────────────────┴─────────────────┘
+ Total params: 293,249 (1.12 MB)
+ Trainable params: 97,749 (381.83 KB)
+ Non-trainable params: 0 (0.00 B)
+ Optimizer params: 195,500 (763.68 KB)
+None
+14/14 ━━━━━━━━━━━━━━━━━━━━ 0s 554us/step - loss: 1.6045
+HERE: 1.6024160385131836
+Final Loss: 1.602090
+90th percentile of input text lengths: 616
+
+Number of features per sample: 616
+Logits:  tf.Tensor(
+[[  3.2408729    2.2311468   -9.175669     1.050564    -7.435308  ]
+ [ -2.8476334   -1.0992259    1.6908993   -5.7066445  -20.177935  ]
+ [-11.4994955   -5.130206    -9.145048     0.07433304  -3.777789  ]], shape=(3, 5), dtype=float32)
+['business' 'politics' 'sport']
+
+
+
+yetiswerve@Alexanders-MacBook-Pro EncryptedSearch % python3 text_classification.py
+14/14 ━━━━━━━━━━━━━━━━━━━━ 0s 399us/step - loss: 48.5473
+14/14 ━━━━━━━━━━━━━━━━━━━━ 0s 369us/step - loss: 23.9540
+14/14 ━━━━━━━━━━━━━━━━━━━━ 0s 400us/step - loss: 4.0756
+14/14 ━━━━━━━━━━━━━━━━━━━━ 0s 422us/step - loss: 7.6621
+14/14 ━━━━━━━━━━━━━━━━━━━━ 0s 437us/step - loss: 7.8981
+14/14 ━━━━━━━━━━━━━━━━━━━━ 0s 349us/step - loss: 42.5981
+14/14 ━━━━━━━━━━━━━━━━━━━━ 0s 366us/step - loss: 26.5259
+14/14 ━━━━━━━━━━━━━━━━━━━━ 0s 394us/step - loss: 11.6216
+14/14 ━━━━━━━━━━━━━━━━━━━━ 0s 415us/step - loss: 12.6194
+14/14 ━━━━━━━━━━━━━━━━━━━━ 0s 445us/step - loss: 7.0048
+14/14 ━━━━━━━━━━━━━━━━━━━━ 0s 355us/step - loss: 76.9310
+14/14 ━━━━━━━━━━━━━━━━━━━━ 0s 355us/step - loss: 33.3370
+14/14 ━━━━━━━━━━━━━━━━━━━━ 0s 400us/step - loss: 12.3277
+14/14 ━━━━━━━━━━━━━━━━━━━━ 0s 453us/step - loss: 1.6028
+14/14 ━━━━━━━━━━━━━━━━━━━━ 0s 477us/step - loss: 6.7603
+14/14 ━━━━━━━━━━━━━━━━━━━━ 0s 404us/step - loss: 4.0422
+14/14 ━━━━━━━━━━━━━━━━━━━━ 0s 448us/step - loss: 6.2141
+14/14 ━━━━━━━━━━━━━━━━━━━━ 0s 415us/step - loss: 1.6063
+
+The final model was selected as follows: 
+
+Model: "sequential_13"
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━┓
+┃ Layer (type)                         ┃ Output Shape                ┃         Param # ┃
+┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━┩
+│ dense_88 (Dense)                     │ (None, 128)                 │          78,976 │
+├──────────────────────────────────────┼─────────────────────────────┼─────────────────┤
+│ dense_89 (Dense)                     │ (None, 112)                 │          14,448 │
+├──────────────────────────────────────┼─────────────────────────────┼─────────────────┤
+│ dense_90 (Dense)                     │ (None, 96)                  │          10,848 │
+├──────────────────────────────────────┼─────────────────────────────┼─────────────────┤
+│ dense_91 (Dense)                     │ (None, 80)                  │           7,760 │
+├──────────────────────────────────────┼─────────────────────────────┼─────────────────┤
+│ dense_92 (Dense)                     │ (None, 64)                  │           5,184 │
+├──────────────────────────────────────┼─────────────────────────────┼─────────────────┤
+│ dense_93 (Dense)                     │ (None, 48)                  │           3,120 │
+├──────────────────────────────────────┼─────────────────────────────┼─────────────────┤
+│ dense_94 (Dense)                     │ (None, 32)                  │           1,568 │
+├──────────────────────────────────────┼─────────────────────────────┼─────────────────┤
+│ dense_95 (Dense)                     │ (None, 5)                   │             165 │
+└──────────────────────────────────────┴─────────────────────────────┴─────────────────┘
+ Total params: 366,209 (1.40 MB)
+ Trainable params: 122,069 (476.83 KB)
+ Non-trainable params: 0 (0.00 B)
+ Optimizer params: 244,140 (953.68 KB)
+None
+14/14 ━━━━━━━━━━━━━━━━━━━━ 0s 407us/step - loss: 1.6063
+HERE: 1.6006900072097778
+Final Loss: 1.600690
+90th percentile of input text lengths: 616
+
+Number of features per sample: 616
+Logits:  tf.Tensor(
+[[-3.693508   14.192547    2.4255044   4.3444896   0.07543887]
+ [12.503486    3.1649756  -9.046769   21.599493   -1.5243176 ]
+ [ 5.4840508   8.258396    0.49107844  5.238921   -5.6356006 ]], shape=(3, 5), dtype=float32)
+['entertainment' 'sport' 'entertainment']
+
+for i in range(5, 10):
+            model = Sequential([Input(shape=(input_shape,))])
+
+            # Define the input layer
+            # model.add(Dense(units=(hid_layer+(hid_layer // 2)*i), 
+            #                         activation='relu', 
+            #                         input_shape=(input_shape, )))
+            
+            # Populate the network with hidden layers
+            for j in range(i-1, 0, -1):
+                model.add(Dense(units=(hid_layer+(hid_layer)*j), activation='relu'))
+
+            # Assign the output layer with as many units as there are categories in the training data
+            # Utilizes the 'linear' activation function in order to deploy the imporved softmax implementation
+            model.add(Dense(units=num_classes, activation='linear'))
+
+            # Compile the model with the Adam optimizer, the SCCE loss function, and the improved softmax implementation
+            model.compile(optimizer=Adam(learning_rate=0.00095),
+                          #metrics=['accuracy'],
+                          loss=CategoricalCrossentropy(from_logits=True))#,
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+1. Server Code
+
+	•	Server.py: This file will contain the server-side logic for receiving files and providing access to them.
+	•	Responsibilities:
+	•	Start the server and listen for incoming connections.
+	•	Handle file reception from clients.
+	•	Verify file integrity using digital signatures.
+	•	Respond to client requests (e.g., send requested files).
+
+2. Client Code
+
+	•	Client.py: This file will handle the client-side operations, such as sending files to the server and requesting files.
+	•	Responsibilities:
+	•	Connect to the server.
+	•	Send files to the server along with their digital signatures.
+	•	Request files from the server.
+
+3. Digital Signature Utility
+
+	•	SignatureUtility.py: This file contains the functions or classes for generating and verifying digital signatures.
+	•	Responsibilities:
+	•	Generate a digital signature for a file.
+	•	Verify a file’s signature to ensure integrity.
+
+Example Structure
+
+	1.	Server.py:
+	•	Imports functions from SignatureUtility.py to handle digital signatures.
+	•	Uses a network library (e.g., socket or asyncio) to manage connections and file transfers.
+	2.	Client.py:
+	•	Connects to the server using a network library.
+	•	Sends files to the server, including the digital signature.
+	•	Requests files from the server.
+	3.	SignatureUtility.py:
+	•	Contains functions for creating and verifying digital signatures (e.g., using RSA or ECDSA).
+
+Summary
+
+	•	Server.py handles server-side operations.
+	•	Client.py manages client-side tasks.
+	•	SignatureUtility.py provides functionality for digital signatures.
+
+This separation of concerns ensures that each part of the application is modular and can be tested independently.
+
+
+The SignatureUtility.py would be used by both the server and the client. Here’s how it would be utilized on each side:
+
+Server Side:
+
+	•	Generating Signatures: The server might generate digital signatures if it needs to send files to the client. For instance, if the server sends a file to the client, it can sign the file to ensure that the client can verify its integrity.
+	•	Verifying Signatures: When the server receives a file from the client, it will use the functions in SignatureUtility.py to verify the file’s digital signature to ensure that the file hasn’t been tampered with during transmission.
+
+Client Side:
+
+	•	Generating Signatures: The client uses SignatureUtility.py to generate digital signatures for files before sending them to the server. This allows the server to verify the file’s integrity upon receipt.
+	•	Verifying Signatures: After receiving files from the server, the client uses SignatureUtility.py to verify the digital signatures of the files to ensure they haven’t been corrupted or tampered with.
+
+Summary
+
+	•	Server: Uses SignatureUtility.py to generate and verify signatures as needed for sending and receiving files.
+	•	Client: Uses SignatureUtility.py to generate signatures for outgoing files and verify signatures for incoming files.
+
+This shared utility file ensures consistency in how signatures are handled and simplifies the integration of digital signatures into both the server and client code.
+
+
+Sending a File with a Digital Signature
+
+	1.	Client Side:
+	•	Generate the Digital Signature: Before sending the file, the client generates a digital signature for the file using a private key and the file’s content.
+	•	Send the File and Signature: The client sends both the file and its digital signature to the server. This can be done in a single message or as separate messages, depending on your protocol design.
+	2.	Server Side:
+	•	Receive the File and Signature: The server receives both the file and the digital signature.
+	•	Verify the Signature: The server uses the public key to verify the digital signature against the received file. If the signature is valid, it confirms that the file hasn’t been tampered with.
+
+Receiving a File with a Digital Signature
+
+	1.	Server Side:
+	•	Send the File and Signature: When sending a file to the client, the server generates a digital signature for the file and sends both the file and its signature to the client.
+	2.	Client Side:
+	•	Receive the File and Signature: The client receives both the file and its digital signature.
+	•	Verify the Signature: The client uses the server’s public key to verify the digital signature. If the signature is valid, it confirms that the file hasn’t been altered during transmission.
+
+Example Protocols
+
+	1.	Single Packet Protocol:
+	•	Send the file and its signature together in one packet.
+	•	Format: <file_data><signature>
+	2.	Separate Packets Protocol:
+	•	Send the file and signature in separate packets.
+	•	Example:
+	•	Packet 1: <file_data>
+	•	Packet 2: <signature>
+
+Summary
+
+	•	Client: Generates and sends the digital signature along with the file.
+	•	Server: Verifies the signature upon receipt.
+	•	Server (when sending files): Signs the file and sends the signature to the client.
+	•	Client (when receiving files): Verifies the signature to ensure integrity.
+
+This method ensures that both parties can validate the integrity of the files being transmitted.

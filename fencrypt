@@ -28,6 +28,10 @@ import pickle
 
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.losses import CategoricalCrossentropy
+import time
+import torch
+import torch.nn as nn
+import torch.nn.functional as nnF
 
 iterations = 250000
 stdout = sys.stdout
@@ -43,6 +47,7 @@ def parser_func():
     group.add_argument("-s", nargs="*", help="search files in current folder")
     parser.add_argument("-j", action="store_true",
                         help="output debug information to stdout")
+    group.add_argument("--classify", nargs="*", help="classify provided files using NN")   # NEW 
     args = parser.parse_args()
     return args
 
@@ -317,34 +322,45 @@ def decrypt(input_file, pword, jset):
     file.close()
     os.remove(meta_location)
 
-def create_meta_file(type, salt, validator, mac, terms_old, item, category):
+def create_meta_file(type, salt, validator, mac, terms_old, item):
     item_old = item
     item_layer = False
     if not os.path.exists(ntpath.basename(item)):
         item_layer = True
     item_name = ntpath.basename(item)
+
     if type == "e":
         output = {}
         output["salt"] = salt.hex()
         output["validator"] = validator.hex()
         output["mac"] = mac.hex()
+
+        # Save normalized terms
         terms = []
-        output["category"] = category
         if terms_old:
             for element in terms_old:
                 terms.append(element.hex())
         output["terms"] = terms
+
+        # NEW fields:
+        output["size"] = os.stat(item).st_size
+        output["timestamp"] = time.time()
+
+        # Run classifier, NEW
+        if terms_old:
+            labels = classify_terms(terms_old)
+        else:
+            labels = []
+        output["labels"] = labels
+
         if item_layer:
             file_name = ntpath.dirname(item_old) + "/" + ".fenc-meta." + item_name
         else:
             file_name = ".fenc-meta." + item_name
-        # output = ast.literal_eval(output)
-        to_write = json.dumps(output)
+
+        to_write = json.dumps(output, indent=2)
         with open(file_name, "w") as f:
             f.write(to_write)
-            # json.dump(output, f)
-            # json.dumps(output)
-            f.close()
         return
 
 def meta_file_print(file):
@@ -435,6 +451,30 @@ def search_output(search_hits):
         if search_hits[element]:
             print("The provided term: " + element + ", was found in the following files:", search_hits[element], file=sys.stderr)
 
+class SimplifiedClassifier(nn.Module):
+    def __init__(self, input_size=32, hidden_size=64, num_classes=3):
+        super(SimplifiedClassifier, self).__init__()
+        self.fc1 = nn.Linear(input_size, hidden_size)
+        self.fc2 = nn.Linear(hidden_size, num_classes)
+
+    def forward(self, x):
+        x = nnF.relu(self.fc1(x))
+        x = self.fc2(x)
+        return x
+
+def classify_terms(terms): # Classifier to assign categories to hash values, just random predictions into three categories for now
+    model = SimplifiedClassifier()
+    model.eval()
+    # convert terms --> tensors
+    labels = []
+    categories = ["finance", "personal", "work"]
+    for t in terms:
+        # TODO: cite stackoverflow post
+        tensor = torch.tensor(list(t[:32]), dtype=torch.float32).unsqueeze(0)
+        output = model(tensor)
+        pred = torch.argmax(output, dim=1).item()
+        labels.append(categories[pred])
+    return list(set(labels))  # only unique labels
 
 def main():
 
@@ -553,6 +593,18 @@ def main():
                 if word.hex() in terms:
                     search_hits[z].append(y[11:])
         search_output(search_hits)
+
+        if args.classify: # NEW 
+            for file in args.classify:
+                meta_location = ".fenc-meta." + ntpath.basename(file)
+                if not os.path.exists(meta_location):
+                    file=sys.stderr
+                    print("No metadata found for " + file)
+                    continue
+                with open(meta_location, "r") as f:
+                    data = json.load(f)
+                labels = data.get("labels", [])
+                print("File: " + file + ", " + "Labels: " + labels)
 
 
 if __name__ == "__main__":
